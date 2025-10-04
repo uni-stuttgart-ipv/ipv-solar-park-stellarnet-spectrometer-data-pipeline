@@ -1,4 +1,5 @@
-env
-
+.aws
+.influxdb
+.venv
 __pycache__/
 dist/
