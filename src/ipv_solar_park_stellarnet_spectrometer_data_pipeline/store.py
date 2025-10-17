@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 import os
 import posixpath
 import logging
@@ -8,6 +8,7 @@ import boto3
 from botocore.exceptions import ClientError
 from botocore.config import Config
 import influxdb_client_3 as influx
+from . import notify
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -72,6 +73,10 @@ def store_spectra_in_s3(
             s3.upload_file(f.name, AWS_S3_BUCKET_NAME, object_key)
         except ClientError as e:
             logger.error(e)
+            notify_credentials = notify.get_credentials()
+            if notify_credentials is not None:
+                msg = f"Failed writing data to AWS S3.\n\n{e}\n\nCheck logs for more details."
+                notify.send_error_email(notify_credentials, msg)
             return None
 
     return object_key
@@ -81,8 +86,23 @@ def influx_success(self, data: str):
     logger.info(f"Successfully wrote batch: data: {data}")
 
 
-def influx_error(self, data: str, exception: influx.InfluxDBError):
+def influx_error(
+    self,
+    data: str,
+    exception: influx.InfluxDBError,
+):
+    """Log influx write error.
+
+    Args:
+        data (str): Data trying to be written.
+        exception (influx.InfluxDBError): Error that ocurred.
+    """
     logger.error(f"Failed writing batch: config: {self}, data: {data} due: {exception}")
+
+    notify_credentials = notify.get_credentials()
+    if notify_credentials is not None:
+        msg = f"Failed writing data to InfluxDB.\n\n{exception}\n\nCheck logs for more details."
+        notify.send_error_email(notify_credentials, msg)
 
 
 def influx_retry(self, data: str, exception: influx.InfluxDBError):
