@@ -1,6 +1,9 @@
 from typing import TYPE_CHECKING
 import os
+import posixpath
 import logging
+import datetime as dt
+import tempfile
 import boto3
 from botocore.exceptions import ClientError
 from botocore.config import Config
@@ -12,42 +15,66 @@ if TYPE_CHECKING:
 AWS_S3_BUCKET_NAME = "solar-park-spectra"
 AWS_ACCESS_KEY_ID_ENV_KEY = "SOLAR_PARK_SPECTRA_AWS_ACCESS_KEY_ID"
 AWS_SECRET_ACCESS_KEY_ENV_KEY = "SOLAR_PARK_SPECTRA_AWS_SECRET_ACCESS_KEY"
-INFLUXDB_HOST = ""
-INFLUXDB_DATABASE = "solar_park"
+AWS_SPECTRA_DATA_FILE_PREFIX = "spectra"
+AWS_DATA_FILE_TIMESTAMP_FORMAT = "%Y%m%d%H%M%S"
+INFLUXDB_HOST = "https://eu-central-1-1.aws.cloud2.influxdata.com"
+INFLUXDB_DATABASE = "solar_park_data"
 INFLUXDB_TOKEN_ENV_KEY = "SOLAR_PARK_SPECTRA_INFLUXDB_TOKEN"
 INFLUXDB_MEASUREMENT_NAME = "solar_spectra"
 INFLUXDB_SPECTROMETER_TAG_NAME = "spectrometer"
-INFLUXDB_SPECTROMETER_FILE_PATH_FIELD_NAME = "data_file_uri"
-INFLUXDB_FIELD = "data_file_path"
+INFLUXDB_SPECTROMETER_BUCKET_FIELD_NAME = "s3_bucket"
+INFLUXDB_SPECTROMETER_FILE_PATH_FIELD_NAME = "s3_object_key"
 LOG_FILE = "store.log"
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG)
 
 
-def store_spectra_in_s3(spectra: pd.DataFrame) -> bool:
+def store_spectra_in_s3(
+    spectra: "pd.DataFrame", timestamp: dt.datetime, spectrometer_id: str
+) -> str | None:
     """Upload spectral data into the respective AWS S3 bucket.
 
     Args:
         spectra (pd.DataFrame): Spectral data to upload.
+        timestamp (dt.datetime): Timestamp of the spectra.
+        spectrometer_id (str): Id of the spectrometer that took the spectra.
 
     Returns:
-        bool: If the data was uploaded successfully.
+        str | None: S3 object key (object path) of the saved file. `None` if an error occured.
+
+    Raises:
+        RuntimeError: Required environment variables are not set.
     """
     access_key_id = os.getenv(AWS_ACCESS_KEY_ID_ENV_KEY)
     secret_access_key = os.getenv(AWS_SECRET_ACCESS_KEY_ENV_KEY)
+    if access_key_id is None:
+        raise RuntimeError(
+            f"environment variable {AWS_ACCESS_KEY_ID_ENV_KEY} is not set"
+        )
+    if secret_access_key is None:
+        raise RuntimeError(
+            f"environment variable {AWS_SECRET_ACCESS_KEY_ENV_KEY} is not set"
+        )
 
     s3 = boto3.client(
         "s3", aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key
     )
 
-    try:
-        s3.upload_file(filename, AWS_S3_BUCKET_NAME, object_name)
-    except ClientError as e:
-        logger.error(e)
-        return False
+    timestamp_str = timestamp.strftime(AWS_DATA_FILE_TIMESTAMP_FORMAT)
+    filename = f"{timestamp_str}.csv"
+    object_key = posixpath.join(AWS_SPECTRA_DATA_FILE_PREFIX, spectrometer_id, filename)
 
-    return True
+    with tempfile.NamedTemporaryFile(delete_on_close=False) as f:
+        spectra.to_csv(f.name, header=False)
+
+        try:
+            s3.upload_file(f.name, AWS_S3_BUCKET_NAME, object_key)
+        except ClientError as e:
+            logger.error(e)
+            return None
+
+    return object_key
 
 
 def influx_success(self, data: str):
@@ -64,23 +91,31 @@ def influx_retry(self, data: str, exception: influx.InfluxDBError):
     )
 
 
-def register_spectra_in_influxdb(data_file_uri: str, spectrometer: str) -> bool:
+def register_spectra_in_influxdb(
+    timestamp: dt.datetime, s3_object_key: str, spectrometer: str
+):
     """Add a reference to a spectral data file to the InfluxDB.
 
     Args:
-        data_file_uri (str): URI to the data file.
+        timestamp (dt.datetime): Timestamp associated to the measurement.
+        s3_object_key (str): S3 object key (object path) to the data file.
         spectrometer (str): Name of the spectrometer.
 
-    Returns:
-        bool: If the reference was successfully added.
+    Raises:
+        RuntimeError: Required environment variables are not set.
     """
     point = (
         influx.Point(INFLUXDB_MEASUREMENT_NAME)
+        .time(timestamp, write_precision=influx.WritePrecision.S)
         .tag(INFLUXDB_SPECTROMETER_TAG_NAME, spectrometer)
-        .field(INFLUXDB_SPECTROMETER_FILE_PATH_FIELD_NAME, data_file_uri)
+        .field(INFLUXDB_SPECTROMETER_BUCKET_FIELD_NAME, AWS_S3_BUCKET_NAME)
+        .field(INFLUXDB_SPECTROMETER_FILE_PATH_FIELD_NAME, s3_object_key)
     )
 
     access_token = os.getenv(INFLUXDB_TOKEN_ENV_KEY)
+    if access_token is None:
+        raise RuntimeError(f"environment variable {INFLUXDB_TOKEN_ENV_KEY} is not set")
+
     write_options = influx.WriteOptions(
         flush_interval=10_000,
         jitter_interval=2_000,
@@ -99,11 +134,8 @@ def register_spectra_in_influxdb(data_file_uri: str, spectrometer: str) -> bool:
 
     with influx.InfluxDBClient3(
         host=INFLUXDB_HOST,
-        org="",
         token=access_token,
         database=INFLUXDB_DATABASE,
         write_client_options=options,
     ) as client:
-        pass
-
-    return True
+        client.write(point)
