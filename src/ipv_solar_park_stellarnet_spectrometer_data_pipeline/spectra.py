@@ -2,12 +2,10 @@ import numpy as np
 import stellarnet_legacy as sn
 
 
-class SpectrometerConfg:
+class SpectrometerConfig:
     def __init__(self, channel: int, c1: float, c2: float, c3: float):
         self._channel = 1
         self._calibration_coeffs = sn.CalibrationCoefficients(c1, c2, c3)
-
-        self.active = True
 
     @property
     def channel(self) -> int:
@@ -23,7 +21,13 @@ class SpectrometerConfg:
 #     )
 
 
-def acquire_spectra(spectrometer: SpectrometerConfg) -> sn.ScanStatus | np.ndarray:
+def acquire_spectra(spectrometer: SpectrometerConfig) -> sn.ScanStatus | np.ndarray:
+    """Acquire a spectra.
+
+    Returns:
+        sn.ScanStatus | np.ndarray: If a spectra is acquired successfully, returns the xy data of wavelength and counts.
+        If an error occurs, returns the scan status.
+    """
     data = sn.read_spectrometer_c(spectrometer.channel)
     if isinstance(data, sn.ScanStatus):
         return data

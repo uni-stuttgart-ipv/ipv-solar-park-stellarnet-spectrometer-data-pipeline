@@ -32,12 +32,12 @@ logging.basicConfig(filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG)
 
 
 def store_spectra_in_s3(
-    spectra: "pd.DataFrame", timestamp: dt.datetime, spectrometer_id: str
+    spectrum: "pd.Series", timestamp: dt.datetime, spectrometer_id: str
 ) -> str | None:
     """Upload spectral data into the respective AWS S3 bucket.
 
     Args:
-        spectra (pd.DataFrame): Spectral data to upload.
+        spectrum (pd.Series): Spectral data to upload.
         timestamp (dt.datetime): Timestamp of the spectra.
         spectrometer_id (str): Id of the spectrometer that took the spectra.
 
@@ -67,7 +67,7 @@ def store_spectra_in_s3(
     object_key = posixpath.join(AWS_SPECTRA_DATA_FILE_PREFIX, spectrometer_id, filename)
 
     with tempfile.NamedTemporaryFile(delete_on_close=False) as f:
-        spectra.to_csv(f.name, header=False)
+        spectrum.to_csv(f.name, header=False)
 
         try:
             s3.upload_file(f.name, AWS_S3_BUCKET_NAME, object_key)
@@ -101,7 +101,7 @@ def influx_error(
 
     notify_credentials = notify.get_credentials()
     if notify_credentials is not None:
-        msg = f"Failed writing data to InfluxDB.\n\n{exception}\n\nCheck logs for more details."
+        msg = f"Failed writing data to InfluxDB.\n\n{data}\n{exception}\n\nCheck logs for more details."
         notify.send_error_email(notify_credentials, msg)
 
 

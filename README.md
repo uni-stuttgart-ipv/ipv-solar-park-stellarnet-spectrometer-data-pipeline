@@ -2,9 +2,10 @@
 
 Data pipeline for the Stellarnet spectrometers in the IPV Solar Park (rooftop).
 
-Monitors solar spectrum and saves on either
-+ Every 10 minutes
-+ If there is a significant change in the spectrum.
+Monitors solar spectrum and saves if
++ A minimum intensity threshold is surpassed (to avoid taking spetra at night)
++ A maximum time threshold has been surpassed
++ A significant change in the spectrum occurs
 
 Data is saved to the S3 bucket `solar-park-spectra` and registered in InfluxDB.
 
@@ -22,8 +23,8 @@ Set the environment variables
 ### Notifications
 Emails can be sent if an error occurs. To configure this set the environment variables
 + `SOLAR_PARK_SPECTRA_NOTIFY_EMAIL` to the email that should receive the notification (e.g. `first.last@ipv.uni-stuttgart.de`)
-+ `SOLAR_PARK_SPECTRA_NOTIFY_USERNAME` to the username of the email account to send from (`ac` number)
-+ `SOLAR_PARK_SPECTRA_NOTIFY_PASSWORD` to the password of the email account (password you use with your `ac` number)
++ `SOLAR_PARK_SPECTRA_NOTIFY_USERNAME` to the username of the email account to send from (`ac` account)
++ `SOLAR_PARK_SPECTRA_NOTIFY_PASSWORD` to the password of the email account (password you use with your `ac` account)
 
 ## License
 
