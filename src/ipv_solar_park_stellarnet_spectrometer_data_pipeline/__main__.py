@@ -1,3 +1,4 @@
+import os
 import logging
 import importlib.resources
 import time
@@ -6,12 +7,18 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import stellarnet_legacy as sn
-from . import spectra, store, stellarnet
+from . import spectra, store, stellarnet, LOG_LEVEL_ENV_KEY, LOG_LEVEL_DEFAULT
 from .spectra import SpectrometerConfig
 
-LOG_FILE = "main.log"
+LOG_FILE = "ipv_solar_park_stellarnet_spectrometer_data_pipeline.log"
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG)
+logging.basicConfig(
+    filename=LOG_FILE,
+    encoding="utf-8",
+    level=LOG_LEVEL_DEFAULT,
+    format="[%(asctime)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 STELLARNET_LOG_PATH_PREFIX = "stellarnet"
 
@@ -34,7 +41,7 @@ with importlib.resources.as_file(spectro_vis_dark_counts_path) as path:
 # Number of channels the spectrometer uses.
 SPECTRO_VIS_CHANNELS = 2048
 # Desired average dark count threshold.
-SPECTRO_VIS_AVG_DARK_COUNT_THRESHOLD = 50
+SPECTRO_VIS_AVG_DARK_COUNT_THRESHOLD = 25
 # Minimum total counts to be a valid spectrum.
 SPECTRO_VIS_SPECTRA_INTENSITY_THRESHOLD = (
     SPECTRO_VIS_CHANNELS * SPECTRO_VIS_AVG_DARK_COUNT_THRESHOLD
@@ -42,9 +49,9 @@ SPECTRO_VIS_SPECTRA_INTENSITY_THRESHOLD = (
 # Minimum time between specta.
 SPECTRO_VIS_SPECTRA_FREQUENCY_SEC = 10
 # Maximum time between spectra.
-SPECTRO_VIS_MAX_TIME_BETWEEN_SPECTRA_SEC = 600
+SPECTRO_VIS_MAX_TIME_BETWEEN_SPECTRA_SEC = 30 * 60
 # Minimum difference to trigger a dynamic spectrum.
-SPECTRO_VIS_SPRECTRA_DIFF_THRESHOLD = 0.1
+SPECTRO_VIS_SPRECTRA_DIFF_THRESHOLD = 0.05
 
 
 @dataclass
@@ -116,6 +123,9 @@ class Spectrometer:
         self, time: dt.datetime, spectrum: np.ndarray
     ) -> bool:
         if not self.spectrum_surpasses_intensity_threshold(spectrum):
+            logger.debug(
+                f"[spectrometer {self.id}] spectrum does not surpass intensity threshold"
+            )
             return False
         if self.max_time_between_spectra_has_elapsed(time):
             return True
@@ -150,6 +160,20 @@ def stellarnet_log_path(prefix: str) -> str:
     return f"{prefix}-{timestamp}.log"
 
 
+def set_log_level():
+    """Set the log level from the environment variable."""
+    log_level = os.getenv(LOG_LEVEL_ENV_KEY)
+    if log_level is None:
+        return
+
+    level: int | None = getattr(logging, log_level.upper(), None)
+    if not isinstance(level, int):
+        logger.warning(f"invalid log level: {log_level}")
+        return
+
+    logger.setLevel(level)
+
+
 def main():
     """Acquire and store spectra."""
     sn.init()
@@ -166,6 +190,7 @@ def main():
     last_log_check = dt.datetime.now()
     log_timestamp = dt.datetime.now()
     while True:
+        set_log_level()
         time.sleep(5)
         now = dt.datetime.now()
         if now - last_log_check > dt.timedelta(hours=1):
@@ -193,7 +218,9 @@ def main():
 
                 store.register_spectra_in_influxdb(timestamp, s3_key, s.id)
                 s.set_last_spectrum(timestamp, spectrum)
+                logger.info(f"spectrum stored for {s.id}")
 
 
 if __name__ == "__main__":
+    logger.info("running")
     main()

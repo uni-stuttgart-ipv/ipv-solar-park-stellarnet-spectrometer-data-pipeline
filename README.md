@@ -26,6 +26,9 @@ Emails can be sent if an error occurs. To configure this set the environment var
 + `SOLAR_PARK_SPECTRA_NOTIFY_USERNAME` to the username of the email account to send from (`ac` account)
 + `SOLAR_PARK_SPECTRA_NOTIFY_PASSWORD` to the password of the email account (password you use with your `ac` account)
 
+### Logging
+You can change the log level by setting the environment variable `IPV_SOLAR_PARK_STELLARNET_SPECTROMETER_DATA_PIPELINE_LOG_LEVEL` to a valid Python `logging` log level. i.e. `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (case insensitive). 
+
 ## License
 
 `ipv-solar-park-stellarnet-spectrometer-data-pipeline` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.

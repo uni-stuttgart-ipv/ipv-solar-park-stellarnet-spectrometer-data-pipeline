@@ -8,7 +8,7 @@ import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError
 import influxdb_client_3 as influx
 from influxdb_client_3.exceptions.exceptions import InfluxDBError
-from . import notify
+from . import notify, LOG_LEVEL_DEFAULT, LOG_LEVEL_ENV_KEY
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -25,10 +25,8 @@ INFLUXDB_MEASUREMENT_NAME = "solar_spectra"
 INFLUXDB_SPECTROMETER_TAG_NAME = "spectrometer"
 INFLUXDB_SPECTROMETER_BUCKET_FIELD_NAME = "s3_bucket"
 INFLUXDB_SPECTROMETER_FILE_PATH_FIELD_NAME = "s3_object_key"
-LOG_FILE = "store.log"
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG)
 
 
 def store_spectra_in_s3(
