@@ -5,3 +5,5 @@ __pycache__/
 dist/
 tmp.py
 store.log
+.env
+*.log

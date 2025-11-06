@@ -36,6 +36,9 @@ Documentation = "https://github.com/uni-stuttgart-ipv/ipv-solar-park-stellarnet-
 Issues = "https://github.com/uni-stuttgart-ipv/ipv-solar-park-stellarnet-spectrometer-data-pipeline/issues"
 Source = "https://github.com/uni-stuttgart-ipv/ipv-solar-park-stellarnet-spectrometer-data-pipeline"
 
+[project.scripts]
+ipv_solar_park_stellarnet_spectrometer_data_pipeline = "ipv-solar-park-stellarnet-spectrometer-data-pipeline.__main__:main"
+
 [tool.hatch.version]
 path = "src/ipv_solar_park_stellarnet_spectrometer_data_pipeline/__about__.py"
 

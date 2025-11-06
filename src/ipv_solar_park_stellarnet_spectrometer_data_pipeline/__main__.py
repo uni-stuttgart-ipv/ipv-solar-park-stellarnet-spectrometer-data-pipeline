@@ -1,15 +1,21 @@
 import logging
+import importlib.resources
+import time
 import datetime as dt
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import stellarnet_legacy as sn
-from . import spectra, store
+from . import spectra, store, stellarnet
 from .spectra import SpectrometerConfig
+
+LOG_FILE = "main.log"
+logger = logging.getLogger(__name__)
+logging.basicConfig(filename=LOG_FILE, encoding="utf-8", level=logging.DEBUG)
 
 STELLARNET_LOG_PATH_PREFIX = "stellarnet"
 
-SPECTRO_VIS_ID = "XXX"
+SPECTRO_VIS_ID = "stellarnet-06041222"
 SPECTRO_VIS_CHANNEL = 1
 
 # Calibration coefficients for the uv-vis spectrometer.
@@ -18,8 +24,21 @@ SPECTRO_VIS_C1 = 0.784591
 SPECTRO_VIS_C2 = -0.000161
 SPECTRO_VIS_C3 = 264.94
 
+SPECTRO_VIS_DARK_COUNTS_PATH = "data/stellarnet-06041222-dark.SSM"
+spectro_vis_dark_counts_path = importlib.resources.files(
+    "ipv_solar_park_stellarnet_spectrometer_data_pipeline"
+).joinpath(SPECTRO_VIS_DARK_COUNTS_PATH)
+with importlib.resources.as_file(spectro_vis_dark_counts_path) as path:
+    SPECTRO_VIS_DARK_SPECTRUM = stellarnet.load_spectrawiz_spectrum(path)
+
+# Number of channels the spectrometer uses.
+SPECTRO_VIS_CHANNELS = 2048
+# Desired average dark count threshold.
+SPECTRO_VIS_AVG_DARK_COUNT_THRESHOLD = 50
 # Minimum total counts to be a valid spectrum.
-SPECTRO_VIS_SPECTRA_INTENSITY_THRESHOLD = 400
+SPECTRO_VIS_SPECTRA_INTENSITY_THRESHOLD = (
+    SPECTRO_VIS_CHANNELS * SPECTRO_VIS_AVG_DARK_COUNT_THRESHOLD
+)
 # Minimum time between specta.
 SPECTRO_VIS_SPECTRA_FREQUENCY_SEC = 10
 # Maximum time between spectra.
@@ -46,11 +65,13 @@ class Spectrometer:
         id: str,
         device_config: SpectrometerConfig,
         measurement_config: MeasurementConfig,
+        dark_spectra: np.ndarray,
     ):
         self.active = True
         self.device_config = device_config
         self.measurement_config = measurement_config
         self._id = id
+        self._dark_spectra = dark_spectra
         self._last_spectra_time: None | dt.datetime = None
         self._last_spectra: None | np.ndarray = None
 
@@ -76,16 +97,19 @@ class Spectrometer:
         )
 
     def spectrum_surpasses_intensity_threshold(self, spectrum: np.ndarray) -> bool:
-        counts = spectrum[1].sum()
-        return counts >= self.measurement_config.intensity_threshold
+        dark_interp = np.interp(
+            spectrum[0], self._dark_spectra[0], self._dark_spectra[1]
+        )
+        counts_corr = spectrum[1] - dark_interp
+        return counts_corr.sum() >= self.measurement_config.intensity_threshold
 
     def spectrum_surpasses_difference_threshold(self, spectrum: np.ndarray) -> bool:
         if self._last_spectra is None:
             return True
+        counts_last = self._last_spectra[1]
 
         counts = spectrum[1]
-        counts_last = self._last_spectra[1]
-        rel_diff = (counts - counts_last) / counts_last
+        rel_diff = (counts - counts_last) / counts_last.sum()
         return rel_diff.sum() >= self.measurement_config.diff_threshold
 
     def spectrum_should_be_stored(
@@ -115,6 +139,7 @@ SPECTROMETERS = [
             SPECTRO_VIS_MAX_TIME_BETWEEN_SPECTRA_SEC,
             SPECTRO_VIS_SPRECTRA_DIFF_THRESHOLD,
         ),
+        SPECTRO_VIS_DARK_SPECTRUM,
     )
 ]
 
@@ -128,7 +153,7 @@ def stellarnet_log_path(prefix: str) -> str:
 def main():
     """Acquire and store spectra."""
     sn.init()
-    sn.enable_logging(STELLARNET_LOG_PATH_PREFIX)
+    sn.enable_logging(stellarnet_log_path(STELLARNET_LOG_PATH_PREFIX))
     sn.open()
 
     device_count_expected = len(list(filter(lambda s: s.active, SPECTROMETERS)))
@@ -138,7 +163,15 @@ def main():
             f"expected {device_count_expected} spectrometers, but found {device_count}"
         )
 
+    last_log_check = dt.datetime.now()
+    log_timestamp = dt.datetime.now()
     while True:
+        time.sleep(5)
+        now = dt.datetime.now()
+        if now - last_log_check > dt.timedelta(hours=1):
+            if now.month != log_timestamp.month:
+                sn.enable_logging(stellarnet_log_path(STELLARNET_LOG_PATH_PREFIX))
+
         for s in SPECTROMETERS:
             if not s.min_time_between_spectra_has_elapsed(dt.datetime.now()):
                 continue
@@ -146,14 +179,16 @@ def main():
             spectrum = spectra.acquire_spectra(s.device_config)
             timestamp = dt.datetime.now()
             if isinstance(spectrum, sn.ScanStatus):
-                # TODO: Log error
+                logger.error(
+                    f"scan for spectrometer {s.id} could not be acquired: status {spectrum}"
+                )
                 continue
 
             if s.spectrum_should_be_stored(timestamp, spectrum):
                 spectrum_df = pd.Series(spectrum[1], index=spectrum[0])
                 s3_key = store.store_spectra_in_s3(spectrum_df, timestamp, s.id)
                 if s3_key is None:
-                    # TODO: Log error
+                    logger.error("could not store spectrum in S3")
                     continue
 
                 store.register_spectra_in_influxdb(timestamp, s3_key, s.id)

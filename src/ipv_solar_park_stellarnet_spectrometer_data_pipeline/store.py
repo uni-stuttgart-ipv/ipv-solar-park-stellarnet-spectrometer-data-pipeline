@@ -5,9 +5,9 @@ import logging
 import datetime as dt
 import tempfile
 import boto3
-from botocore.exceptions import ClientError
-from botocore.config import Config
+from botocore.exceptions import ClientError, EndpointConnectionError
 import influxdb_client_3 as influx
+from influxdb_client_3.exceptions.exceptions import InfluxDBError
 from . import notify
 
 if TYPE_CHECKING:
@@ -71,11 +71,25 @@ def store_spectra_in_s3(
 
         try:
             s3.upload_file(f.name, AWS_S3_BUCKET_NAME, object_key)
+        except EndpointConnectionError as e:
+            logger.error(e)
+            notify_credentials = notify.get_credentials()
+            if notify_credentials is not None:
+                msg = f"Could not connect to AWS S3.\n\n{e}\n\nCheck logs for more details."
+                notify.send_error_email(notify_credentials, msg)
+            return None
         except ClientError as e:
             logger.error(e)
             notify_credentials = notify.get_credentials()
             if notify_credentials is not None:
                 msg = f"Failed writing data to AWS S3.\n\n{e}\n\nCheck logs for more details."
+                notify.send_error_email(notify_credentials, msg)
+            return None
+        except Exception as e:
+            logger.error(e)
+            notify_credentials = notify.get_credentials()
+            if notify_credentials is not None:
+                msg = f"An unhandled error ocurred.\n\n{e}\n\nCheck logs for more details."
                 notify.send_error_email(notify_credentials, msg)
             return None
 
@@ -89,7 +103,7 @@ def influx_success(self, data: str):
 def influx_error(
     self,
     data: str,
-    exception: influx.InfluxDBError,
+    exception: InfluxDBError,
 ):
     """Log influx write error.
 
@@ -105,7 +119,7 @@ def influx_error(
         notify.send_error_email(notify_credentials, msg)
 
 
-def influx_retry(self, data: str, exception: influx.InfluxDBError):
+def influx_retry(self, data: str, exception: InfluxDBError):
     logger.debug(
         f"Failed retry writing batch: config: {self}, data: {data} retry: {exception}"
     )
