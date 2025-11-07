@@ -39,7 +39,7 @@ with importlib.resources.as_file(spectro_vis_dark_counts_path) as path:
     SPECTRO_VIS_DARK_SPECTRUM = stellarnet.load_spectrawiz_spectrum(path)
 
 # Minimum max counts to be a valid spectrum.
-SPECTRO_VIS_SPECTRA_INTENSITY_THRESHOLD = 100
+SPECTRO_VIS_SPECTRA_INTENSITY_THRESHOLD = 20
 # Minimum time between specta.
 SPECTRO_VIS_SPECTRA_FREQUENCY_SEC = 10
 # Maximum time between spectra.

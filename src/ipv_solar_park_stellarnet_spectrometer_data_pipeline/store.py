@@ -83,21 +83,30 @@ def store_spectra_in_s3(
             notify_credentials = notify.get_credentials()
             if notify_credentials is not None:
                 msg = f"Could not connect to AWS S3.\n\n{e}\n\nCheck logs for more details."
-                notify.send_error_email(notify_credentials, msg)
+                try:
+                    notify.send_error_email(notify_credentials, msg)
+                except Exception as e:
+                    log_data(logging.ERROR, dict(event="notification_failed", error=e))
             return None
         except ClientError as e:
             log_data(logging.ERROR, dict(event="s3_storage_failure", error=e))
             notify_credentials = notify.get_credentials()
             if notify_credentials is not None:
                 msg = f"Failed writing data to AWS S3.\n\n{e}\n\nCheck logs for more details."
-                notify.send_error_email(notify_credentials, msg)
+                try:
+                    notify.send_error_email(notify_credentials, msg)
+                except Exception as e:
+                    log_data(logging.ERROR, dict(event="notification_failed", error=e))
             return None
         except Exception as e:
             log_data(logging.ERROR, dict(event="s3_storage_failure", error=e))
             notify_credentials = notify.get_credentials()
             if notify_credentials is not None:
                 msg = f"An unhandled error ocurred.\n\n{e}\n\nCheck logs for more details."
-                notify.send_error_email(notify_credentials, msg)
+                try:
+                    notify.send_error_email(notify_credentials, msg)
+                except Exception as e:
+                    log_data(logging.ERROR, dict(event="notification_failed", error=e))
             return None
 
     return object_key
@@ -128,7 +137,10 @@ def influx_error(
     notify_credentials = notify.get_credentials()
     if notify_credentials is not None:
         msg = f"Failed writing data to InfluxDB.\n\n{data}\n{exception}\n\nCheck logs for more details."
-        notify.send_error_email(notify_credentials, msg)
+        try:
+            notify.send_error_email(notify_credentials, msg)
+        except Exception as e:
+            log_data(logging.ERROR, dict(event="notification_failed", error=e))
 
 
 def influx_retry(self, data: str, exception: InfluxDBError):

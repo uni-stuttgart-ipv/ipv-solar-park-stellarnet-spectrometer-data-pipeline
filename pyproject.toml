@@ -29,6 +29,7 @@ dependencies = [
   "pandas",
   "boto3",
   "influxdb3-python",
+  "pip-system-certs",
 ]
 
 [project.urls]
