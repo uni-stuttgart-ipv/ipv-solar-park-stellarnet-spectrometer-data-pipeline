@@ -79,26 +79,26 @@ class Spectrometer:
         self.device_config = device_config
         self.measurement_config = measurement_config
         self._id = id
-        self._dark_spectra = dark_spectra
-        self._last_spectra_time: None | dt.datetime = None
-        self._last_spectra: None | np.ndarray = None
+        self._dark_spectrum = dark_spectra
+        self._last_spectrum_time: None | dt.datetime = None
+        self._last_spectrum: None | np.ndarray = None
 
     @property
     def id(self) -> str:
         return self._id
 
     def min_time_between_spectra_has_elapsed(self, time: dt.datetime) -> bool:
-        if self._last_spectra_time is None:
+        if self._last_spectrum_time is None:
             return True
 
-        elapsed = time - self._last_spectra_time
+        elapsed = time - self._last_spectrum_time
         return elapsed.total_seconds() >= self.measurement_config.spectra_freq_sec
 
     def max_time_between_spectra_has_elapsed(self, time: dt.datetime) -> bool:
-        if self._last_spectra_time is None:
+        if self._last_spectrum_time is None:
             return True
 
-        elapsed = time - self._last_spectra_time
+        elapsed = time - self._last_spectrum_time
         exceeded = (
             elapsed.total_seconds()
             >= self.measurement_config.max_period_between_spectra_sec
@@ -118,7 +118,7 @@ class Spectrometer:
 
     def spectrum_surpasses_intensity_threshold(self, spectrum: np.ndarray) -> bool:
         dark_interp = np.interp(
-            spectrum[0], self._dark_spectra[0], self._dark_spectra[1]
+            spectrum[0], self._dark_spectrum[0], self._dark_spectrum[1]
         )
         peak = (spectrum[1] - dark_interp).max()
         exceeded = peak >= self.measurement_config.intensity_threshold
@@ -134,10 +134,10 @@ class Spectrometer:
         return exceeded
 
     def spectrum_surpasses_difference_threshold(self, spectrum: np.ndarray) -> bool:
-        if self._last_spectra is None:
+        if self._last_spectrum is None:
             return True
 
-        counts_last = self._last_spectra[1]
+        counts_last = self._last_spectrum[1]
         counts = spectrum[1]
         rel_diff = np.sqrt(np.square(counts - counts_last).sum())
         rel_diff = rel_diff / counts_last.sum()
@@ -164,8 +164,8 @@ class Spectrometer:
         return self.spectrum_surpasses_difference_threshold(spectrum)
 
     def set_last_spectrum(self, time: dt.datetime, spectrum: np.ndarray):
-        self._last_spectra_time = time
-        self._last_spectra = spectrum
+        self._last_spectrum_time = time
+        self._last_spectrum = spectrum
 
 
 SPECTROMETERS = [
