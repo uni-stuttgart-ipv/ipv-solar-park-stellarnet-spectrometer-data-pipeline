@@ -29,6 +29,15 @@ INFLUXDB_SPECTROMETER_FILE_PATH_FIELD_NAME = "s3_object_key"
 logger = logging.getLogger(__name__)
 
 
+def log_data(level: int, data: dict):
+    msg_data = []
+    for key, value in data.items():
+        msg_data.append(f'"{key}": "{value}"')
+
+    msg = ", ".join(msg_data)
+    logger.log(level, msg)
+
+
 def store_spectra_in_s3(
     spectrum: "pd.Series", timestamp: dt.datetime, spectrometer_id: str
 ) -> str | None:
@@ -70,21 +79,21 @@ def store_spectra_in_s3(
         try:
             s3.upload_file(f.name, AWS_S3_BUCKET_NAME, object_key)
         except EndpointConnectionError as e:
-            logger.error(e)
+            log_data(logging.ERROR, dict(event="s3_storage_failure", error=e))
             notify_credentials = notify.get_credentials()
             if notify_credentials is not None:
                 msg = f"Could not connect to AWS S3.\n\n{e}\n\nCheck logs for more details."
                 notify.send_error_email(notify_credentials, msg)
             return None
         except ClientError as e:
-            logger.error(e)
+            log_data(logging.ERROR, dict(event="s3_storage_failure", error=e))
             notify_credentials = notify.get_credentials()
             if notify_credentials is not None:
                 msg = f"Failed writing data to AWS S3.\n\n{e}\n\nCheck logs for more details."
                 notify.send_error_email(notify_credentials, msg)
             return None
         except Exception as e:
-            logger.error(e)
+            log_data(logging.ERROR, dict(event="s3_storage_failure", error=e))
             notify_credentials = notify.get_credentials()
             if notify_credentials is not None:
                 msg = f"An unhandled error ocurred.\n\n{e}\n\nCheck logs for more details."
@@ -94,8 +103,10 @@ def store_spectra_in_s3(
     return object_key
 
 
-def influx_success(self, data: str):
-    logger.info(f"Successfully wrote batch: data: {data}")
+def influx_success(self, data: bytes):
+    data_str = data.decode()
+    data_str = data_str.replace('"', '\\"')
+    log_data(logging.INFO, dict(event="influxdb_registration_success", data=data_str))
 
 
 def influx_error(
@@ -109,7 +120,10 @@ def influx_error(
         data (str): Data trying to be written.
         exception (influx.InfluxDBError): Error that ocurred.
     """
-    logger.error(f"Failed writing batch: config: {self}, data: {data} due: {exception}")
+    log_data(
+        logging.ERROR,
+        dict(event="influxdb_write_failure", config=self, data=data, cause=exception),
+    )
 
     notify_credentials = notify.get_credentials()
     if notify_credentials is not None:
@@ -118,8 +132,9 @@ def influx_error(
 
 
 def influx_retry(self, data: str, exception: InfluxDBError):
-    logger.debug(
-        f"Failed retry writing batch: config: {self}, data: {data} retry: {exception}"
+    log_data(
+        logging.DEBUG,
+        dict(event="influxdb_retry", config=self, data=data, cause=exception),
     )
 
 

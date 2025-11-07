@@ -16,7 +16,7 @@ logging.basicConfig(
     filename=LOG_FILE,
     encoding="utf-8",
     level=LOG_LEVEL_DEFAULT,
-    format="[%(asctime)s] %(message)s",
+    format='{"time"="%(asctime)s", %(message)s}',
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
@@ -38,20 +38,21 @@ spectro_vis_dark_counts_path = importlib.resources.files(
 with importlib.resources.as_file(spectro_vis_dark_counts_path) as path:
     SPECTRO_VIS_DARK_SPECTRUM = stellarnet.load_spectrawiz_spectrum(path)
 
-# Number of channels the spectrometer uses.
-SPECTRO_VIS_CHANNELS = 2048
-# Desired average dark count threshold.
-SPECTRO_VIS_AVG_DARK_COUNT_THRESHOLD = 25
-# Minimum total counts to be a valid spectrum.
-SPECTRO_VIS_SPECTRA_INTENSITY_THRESHOLD = (
-    SPECTRO_VIS_CHANNELS * SPECTRO_VIS_AVG_DARK_COUNT_THRESHOLD
-)
+# Minimum max counts to be a valid spectrum.
+SPECTRO_VIS_SPECTRA_INTENSITY_THRESHOLD = 100
 # Minimum time between specta.
 SPECTRO_VIS_SPECTRA_FREQUENCY_SEC = 10
 # Maximum time between spectra.
 SPECTRO_VIS_MAX_TIME_BETWEEN_SPECTRA_SEC = 30 * 60
 # Minimum difference to trigger a dynamic spectrum.
 SPECTRO_VIS_SPRECTRA_DIFF_THRESHOLD = 0.05
+
+
+def log_data(level: int, spectrometer: "Spectrometer", data: dict):
+    msg = f'"spectrometer": "{spectrometer.id}"'
+    for key, value in data.items():
+        msg += f', "{key}": "{value}"'
+    logger.log(level, msg)
 
 
 @dataclass
@@ -63,7 +64,7 @@ class MeasurementConfig:
     # Maximum time between specta.
     max_period_between_spectra_sec: int
     # Minimum difference to trigger a dynamic spectra.
-    diff_threshold: float
+    spectral_diff_threshold: float
 
 
 class Spectrometer:
@@ -98,34 +99,64 @@ class Spectrometer:
             return True
 
         elapsed = time - self._last_spectra_time
-        return (
+        exceeded = (
             elapsed.total_seconds()
             >= self.measurement_config.max_period_between_spectra_sec
         )
+        if exceeded:
+            log_data(
+                logging.DEBUG,
+                self,
+                dict(
+                    event="spectrum_validation",
+                    property="max_period_between_spectra_sec",
+                    value=exceeded,
+                ),
+            )
+
+        return exceeded
 
     def spectrum_surpasses_intensity_threshold(self, spectrum: np.ndarray) -> bool:
         dark_interp = np.interp(
             spectrum[0], self._dark_spectra[0], self._dark_spectra[1]
         )
-        counts_corr = spectrum[1] - dark_interp
-        return counts_corr.sum() >= self.measurement_config.intensity_threshold
+        peak = (spectrum[1] - dark_interp).max()
+        exceeded = peak >= self.measurement_config.intensity_threshold
+        log_data(
+            logging.DEBUG,
+            self,
+            dict(
+                event="spectrum_validation",
+                property="intensity_threshold",
+                value=exceeded,
+            ),
+        )
+        return exceeded
 
     def spectrum_surpasses_difference_threshold(self, spectrum: np.ndarray) -> bool:
         if self._last_spectra is None:
             return True
-        counts_last = self._last_spectra[1]
 
+        counts_last = self._last_spectra[1]
         counts = spectrum[1]
-        rel_diff = (counts - counts_last) / counts_last.sum()
-        return rel_diff.sum() >= self.measurement_config.diff_threshold
+        rel_diff = np.sqrt(np.square(counts - counts_last).sum())
+        rel_diff = rel_diff / counts_last.sum()
+        exceeded = rel_diff >= self.measurement_config.spectral_diff_threshold
+        log_data(
+            logging.DEBUG,
+            self,
+            dict(
+                event="spectrum_validation",
+                property="spectral_diff_threshold",
+                value=exceeded,
+            ),
+        )
+        return exceeded
 
     def spectrum_should_be_stored(
         self, time: dt.datetime, spectrum: np.ndarray
     ) -> bool:
         if not self.spectrum_surpasses_intensity_threshold(spectrum):
-            logger.debug(
-                f"[spectrometer {self.id}] spectrum does not surpass intensity threshold"
-            )
             return False
         if self.max_time_between_spectra_has_elapsed(time):
             return True
@@ -197,30 +228,34 @@ def main():
             if now.month != log_timestamp.month:
                 sn.enable_logging(stellarnet_log_path(STELLARNET_LOG_PATH_PREFIX))
 
-        for s in SPECTROMETERS:
-            if not s.min_time_between_spectra_has_elapsed(dt.datetime.now()):
+        for spectrometer in SPECTROMETERS:
+            if not spectrometer.min_time_between_spectra_has_elapsed(dt.datetime.now()):
                 continue
 
-            spectrum = spectra.acquire_spectra(s.device_config)
+            spectrum = spectra.acquire_spectra(spectrometer.device_config)
             timestamp = dt.datetime.now()
             if isinstance(spectrum, sn.ScanStatus):
-                logger.error(
-                    f"scan for spectrometer {s.id} could not be acquired: status {spectrum}"
-                )
+                log_data(logging.ERROR, spectrometer, dict(event="acquisition_failure"))
                 continue
 
-            if s.spectrum_should_be_stored(timestamp, spectrum):
+            if spectrometer.spectrum_should_be_stored(timestamp, spectrum):
                 spectrum_df = pd.Series(spectrum[1], index=spectrum[0])
-                s3_key = store.store_spectra_in_s3(spectrum_df, timestamp, s.id)
+                s3_key = store.store_spectra_in_s3(
+                    spectrum_df, timestamp, spectrometer.id
+                )
                 if s3_key is None:
-                    logger.error("could not store spectrum in S3")
+                    log_data(
+                        logging.ERROR,
+                        spectrometer,
+                        dict(event="storage_failure"),
+                    )
                     continue
 
-                store.register_spectra_in_influxdb(timestamp, s3_key, s.id)
-                s.set_last_spectrum(timestamp, spectrum)
-                logger.info(f"spectrum stored for {s.id}")
+                store.register_spectra_in_influxdb(timestamp, s3_key, spectrometer.id)
+                spectrometer.set_last_spectrum(timestamp, spectrum)
+                log_data(logging.INFO, spectrometer, dict(event="spectrum_stored"))
 
 
 if __name__ == "__main__":
-    logger.info("running")
+    logger.info('"event": "script_start"')
     main()
