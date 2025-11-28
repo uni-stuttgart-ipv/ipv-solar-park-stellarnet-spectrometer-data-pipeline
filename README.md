@@ -2,7 +2,7 @@
 
 Data pipeline for the Stellarnet spectrometers in the IPV Solar Park (rooftop).
 
-> For access to our solar spectrum data send an email to brian.carlsen@ipv.uni-stuttgart.de or sekretariat@ipv.uni-stuttgart.de.
+> For access to our solar spectrum data send an email to sekretariat@ipv.uni-stuttgart.de.
 
 Monitors solar spectrum and saves if
 + A minimum intensity threshold is surpassed (to avoid taking spetra at night)
