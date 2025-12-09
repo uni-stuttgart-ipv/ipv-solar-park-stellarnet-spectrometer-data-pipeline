@@ -39,7 +39,7 @@ with importlib.resources.as_file(spectro_vis_dark_counts_path) as path:
     SPECTRO_VIS_DARK_SPECTRUM = stellarnet.load_spectrawiz_spectrum(path)
 
 # Minimum max counts to be a valid spectrum.
-SPECTRO_VIS_SPECTRA_INTENSITY_THRESHOLD = 20
+SPECTRO_VIS_SPECTRA_INTENSITY_THRESHOLD = 50
 # Minimum time between specta.
 SPECTRO_VIS_SPECTRA_FREQUENCY_SEC = 10
 # Maximum time between spectra.
@@ -103,16 +103,15 @@ class Spectrometer:
             elapsed.total_seconds()
             >= self.measurement_config.max_period_between_spectra_sec
         )
-        if exceeded:
-            log_data(
-                logging.DEBUG,
-                self,
-                dict(
-                    event="spectrum_validation",
-                    property="max_period_between_spectra_sec",
-                    value=exceeded,
-                ),
-            )
+        log_data(
+            logging.DEBUG,
+            self,
+            dict(
+                event="spectrum_validation",
+                property="max_period_between_spectra_sec",
+                value=exceeded,
+            ),
+        )
 
         return exceeded
 
