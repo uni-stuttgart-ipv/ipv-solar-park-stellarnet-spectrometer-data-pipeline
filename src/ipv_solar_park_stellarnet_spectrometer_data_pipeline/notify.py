@@ -1,4 +1,5 @@
-from typing import Optional
+from __future__ import annotations
+
 import os
 import smtplib
 import ssl
@@ -44,7 +45,7 @@ def send_error_email(credentials: EmailCredentials, content: str):
         server.send_message(msg)
 
 
-def get_credentials() -> Optional[EmailCredentials]:
+def get_credentials() -> EmailCredentials | None:
     email = os.getenv(EMAIL_ENV_KEY)
     username = os.getenv(USERNAME_ENV_KEY)
     password = os.getenv(PASSWORD_ENV_KEY)

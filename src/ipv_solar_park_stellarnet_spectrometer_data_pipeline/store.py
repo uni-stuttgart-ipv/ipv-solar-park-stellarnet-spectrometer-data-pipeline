@@ -1,14 +1,18 @@
-from typing import TYPE_CHECKING, Optional
+from __future__ import annotations
+
+import datetime as dt
+import logging
 import os
 import posixpath
-import logging
-import datetime as dt
 import tempfile
+from typing import TYPE_CHECKING
+
 import boto3
-from botocore.exceptions import ClientError, EndpointConnectionError
 import influxdb_client_3 as influx
+from botocore.exceptions import ClientError, EndpointConnectionError
 from influxdb_client_3.exceptions.exceptions import InfluxDBError
-from . import notify, LOG_LEVEL_DEFAULT, LOG_LEVEL_ENV_KEY
+
+from . import notify
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -39,7 +43,7 @@ def log_data(level: int, data: dict):
 
 
 def store_spectra_in_s3(
-    spectrum: "pd.Series", timestamp: dt.datetime, spectrometer_id: str
+    spectrum: pd.Series, timestamp: dt.datetime, spectrometer_id: str
 ) -> str | None:
     """Upload spectral data into the respective AWS S3 bucket.
 
@@ -79,34 +83,40 @@ def store_spectra_in_s3(
         try:
             s3.upload_file(f.name, AWS_S3_BUCKET_NAME, object_key)
         except EndpointConnectionError as e:
-            log_data(logging.ERROR, dict(event="s3_storage_failure", error=e))
+            log_data(logging.ERROR, {"event": "s3_storage_failure", "error": e})
             notify_credentials = notify.get_credentials()
             if notify_credentials is not None:
                 msg = f"Could not connect to AWS S3.\n\n{e}\n\nCheck logs for more details."
                 try:
                     notify.send_error_email(notify_credentials, msg)
                 except Exception as e:
-                    log_data(logging.ERROR, dict(event="notification_failed", error=e))
+                    log_data(
+                        logging.ERROR, {"event": "notification_failed", "error": e}
+                    )
             return None
         except ClientError as e:
-            log_data(logging.ERROR, dict(event="s3_storage_failure", error=e))
+            log_data(logging.ERROR, {"event": "s3_storage_failure", "error": e})
             notify_credentials = notify.get_credentials()
             if notify_credentials is not None:
                 msg = f"Failed writing data to AWS S3.\n\n{e}\n\nCheck logs for more details."
                 try:
                     notify.send_error_email(notify_credentials, msg)
                 except Exception as e:
-                    log_data(logging.ERROR, dict(event="notification_failed", error=e))
+                    log_data(
+                        logging.ERROR, {"event": "notification_failed", "error": e}
+                    )
             return None
         except Exception as e:
-            log_data(logging.ERROR, dict(event="s3_storage_failure", error=e))
+            log_data(logging.ERROR, {"event": "s3_storage_failure", "error": e})
             notify_credentials = notify.get_credentials()
             if notify_credentials is not None:
                 msg = f"An unhandled error ocurred.\n\n{e}\n\nCheck logs for more details."
                 try:
                     notify.send_error_email(notify_credentials, msg)
                 except Exception as e:
-                    log_data(logging.ERROR, dict(event="notification_failed", error=e))
+                    log_data(
+                        logging.ERROR, {"event": "notification_failed", "error": e}
+                    )
             return None
 
     return object_key
@@ -115,7 +125,7 @@ def store_spectra_in_s3(
 def influx_success(self, data: bytes):
     data_str = data.decode()
     data_str = data_str.replace('"', '\\"')
-    log_data(logging.INFO, dict(event="influxdb_registration_success", data=data_str))
+    log_data(logging.INFO, {"event": "influxdb_registration_success", "data": data_str})
 
 
 def influx_error(
@@ -131,7 +141,12 @@ def influx_error(
     """
     log_data(
         logging.ERROR,
-        dict(event="influxdb_write_failure", config=self, data=data, cause=exception),
+        {
+            "event": "influxdb_write_failure",
+            "config": self,
+            "data": data,
+            "cause": exception,
+        },
     )
 
     notify_credentials = notify.get_credentials()
@@ -140,13 +155,13 @@ def influx_error(
         try:
             notify.send_error_email(notify_credentials, msg)
         except Exception as e:
-            log_data(logging.ERROR, dict(event="notification_failed", error=e))
+            log_data(logging.ERROR, {"event": "notification_failed", "error": e})
 
 
 def influx_retry(self, data: str, exception: InfluxDBError):
     log_data(
         logging.DEBUG,
-        dict(event="influxdb_retry", config=self, data=data, cause=exception),
+        {"event": "influxdb_retry", "config": self, "data": data, "cause": exception},
     )
 
 
@@ -164,7 +179,8 @@ def register_spectra_in_influxdb(
         RuntimeError: Required environment variables are not set.
     """
     point = (
-        influx.Point(INFLUXDB_MEASUREMENT_NAME)
+        influx
+        .Point(INFLUXDB_MEASUREMENT_NAME)
         .time(timestamp, write_precision=influx.WritePrecision.S)
         .tag(INFLUXDB_SPECTROMETER_TAG_NAME, spectrometer)
         .field(INFLUXDB_SPECTROMETER_BUCKET_FIELD_NAME, AWS_S3_BUCKET_NAME)
