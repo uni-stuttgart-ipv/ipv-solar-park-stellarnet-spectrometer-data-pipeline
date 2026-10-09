@@ -25,6 +25,7 @@ logging.basicConfig(
 LOOP_DELAY = 5
 STELLARNET_LOG_PATH_PREFIX = "stellarnet"
 
+# UV-Vis spectrometer configuration
 SPECTRO_VIS_ID = "stellarnet-06041222"
 SPECTRO_VIS_CHANNEL = 1
 
@@ -49,6 +50,33 @@ SPECTRO_VIS_SPECTRA_FREQUENCY_SEC = 10
 SPECTRO_VIS_MAX_TIME_BETWEEN_SPECTRA_SEC = 30 * 60
 # Minimum difference to trigger a dynamic spectrum.
 SPECTRO_VIS_SPRECTRA_DIFF_THRESHOLD = 0.05
+
+
+# IR spectrometer configuration
+SPECTRO_IR_ID = "stellarnet-06032911"
+SPECTRO_IR_CHANNEL = 1
+
+# Calibration coefficients for the ir spectrometer.
+# Values found on the bottom label of the spectrometer.
+SPECTRO_IR_C1 = 3.433284
+SPECTRO_IR_C2 = 0.000654
+SPECTRO_IR_C3 = 888.60
+
+SPECTRO_IR_DARK_COUNTS_PATH = "data/stellarnet-06041222-dark.SSM"
+spectro_ir_dark_counts_path = importlib.resources.files(
+    "ipv_solar_park_stellarnet_spectrometer_data_pipeline"
+).joinpath(SPECTRO_IR_DARK_COUNTS_PATH)
+with importlib.resources.as_file(spectro_ir_dark_counts_path) as path:
+    SPECTRO_IR_DARK_SPECTRUM = stellarnet.load_spectrawiz_spectrum(path)
+
+# Minimum max counts to be a valid spectrum.
+SPECTRO_IR_SPECTRA_INTENSITY_THRESHOLD = 50
+# Minimum time between specta.
+SPECTRO_IR_SPECTRA_FREQUENCY_SEC = 10
+# Maximum time between spectra.
+SPECTRO_IR_MAX_TIME_BETWEEN_SPECTRA_SEC = 30 * 60
+# Minimum difference to trigger a dynamic spectrum.
+SPECTRO_IR_SPRECTRA_DIFF_THRESHOLD = 0.05
 
 
 def log_data(level: int, spectrometer: "Spectrometer", data: dict):
@@ -183,7 +211,20 @@ SPECTROMETERS = [
             SPECTRO_VIS_SPRECTRA_DIFF_THRESHOLD,
         ),
         SPECTRO_VIS_DARK_SPECTRUM,
-    )
+    ),
+    Spectrometer(
+        SPECTRO_IR_ID,
+        SpectrometerConfig(
+            SPECTRO_IR_CHANNEL, SPECTRO_IR_C1, SPECTRO_IR_C2, SPECTRO_IR_C3
+        ),
+        MeasurementConfig(
+            SPECTRO_IR_SPECTRA_INTENSITY_THRESHOLD,
+            SPECTRO_IR_SPECTRA_FREQUENCY_SEC,
+            SPECTRO_IR_MAX_TIME_BETWEEN_SPECTRA_SEC,
+            SPECTRO_IR_SPRECTRA_DIFF_THRESHOLD,
+        ),
+        SPECTRO_IR_DARK_SPECTRUM,
+    ),
 ]
 
 
