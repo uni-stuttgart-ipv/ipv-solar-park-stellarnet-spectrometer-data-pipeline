@@ -15,7 +15,7 @@ Data is saved to the S3 bucket `solar-park-spectra` and registered in InfluxDB.
 
 ## Install
 ```bash
-pip install pip3 install git+https://github.com/uni-stuttgart-ipv/ipv-solar-park-stellarnet-spectrometer-data-pipeline.git
+pip install git+https://github.com/uni-stuttgart-ipv/ipv-solar-park-stellarnet-spectrometer-data-pipeline.git
 ```
 
 ## Setup
