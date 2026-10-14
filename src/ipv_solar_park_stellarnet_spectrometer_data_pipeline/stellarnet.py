@@ -24,7 +24,7 @@ def load_spectrawiz_spectrum(path: str | Path) -> np.ndarray:
     with open(path) as f:
         for line in f:
             line = line.strip()
-            if line.startswith(SSM_COMMENT_CHAR):
+            if line.startswith(SSM_COMMENT_CHAR) or len(line) == 0:
                 continue
 
             parts = line.split()

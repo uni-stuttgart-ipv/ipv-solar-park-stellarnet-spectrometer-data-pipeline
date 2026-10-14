@@ -3,5 +3,7 @@
 # SPDX-License-Identifier: MIT
 import logging
 
+from . import lib, spectra  # noqa: F401
+
 LOG_LEVEL_ENV_KEY = "IPV_SOLAR_PARK_STELLARNET_SPECTROMETER_DATA_PIPELINE_LOG_LEVEL"
 LOG_LEVEL_DEFAULT = logging.INFO

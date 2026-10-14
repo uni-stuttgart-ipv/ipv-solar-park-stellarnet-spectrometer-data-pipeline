@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import os
+import pathlib
 import posixpath
 import tempfile
 from typing import TYPE_CHECKING
@@ -214,3 +215,17 @@ def register_spectra_in_influxdb(
         write_client_options=options,
     ) as client:
         client.write(point)
+
+
+def store_spectra_local(
+    spectrum: pd.Series, timestamp: dt.datetime, spectrometer_id: str, root: os.PathLike
+):
+    timestamp_str = timestamp.strftime(AWS_DATA_FILE_TIMESTAMP_FORMAT)
+    filename = f"{timestamp_str}.csv"
+    dirpath = pathlib.Path(root) / spectrometer_id
+    filepath = dirpath / filename
+
+    if not os.path.exists(dirpath):
+        os.makedirs(dirpath)
+
+    spectrum.to_csv(filepath, header=False)

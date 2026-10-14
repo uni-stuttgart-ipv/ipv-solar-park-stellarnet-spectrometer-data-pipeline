@@ -7,3 +7,4 @@ tmp.py
 store.log
 .env
 *.log
+.pytest_cache

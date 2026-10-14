@@ -6,9 +6,9 @@ import ssl
 from email.message import EmailMessage
 
 SMTP_SERVER = "smtp.uni-stuttgart.de"
-EMAIL_ENV_KEY = "SOLAR_PARK_SPECTRA_NOTIFY_EMAIL"
-USERNAME_ENV_KEY = "SOLAR_PARK_SPECTRA_NOTIFY_USERNAME"
-PASSWORD_ENV_KEY = "SOLAR_PARK_SPECTRA_NOTIFY_PASSWORD"
+ENV_KEY_EMAIL = "SOLAR_PARK_SPECTRA_NOTIFY_EMAIL"
+ENV_KEY_USERNAME = "SOLAR_PARK_SPECTRA_NOTIFY_USERNAME"
+ENV_KEY_PASSWORD = "SOLAR_PARK_SPECTRA_NOTIFY_PASSWORD"
 
 
 class EmailCredentials:
@@ -46,9 +46,9 @@ def send_error_email(credentials: EmailCredentials, content: str):
 
 
 def get_credentials() -> EmailCredentials | None:
-    email = os.getenv(EMAIL_ENV_KEY)
-    username = os.getenv(USERNAME_ENV_KEY)
-    password = os.getenv(PASSWORD_ENV_KEY)
+    email = os.getenv(ENV_KEY_EMAIL)
+    username = os.getenv(ENV_KEY_USERNAME)
+    password = os.getenv(ENV_KEY_PASSWORD)
     if email is None or username is None or password is None:
         return None
 

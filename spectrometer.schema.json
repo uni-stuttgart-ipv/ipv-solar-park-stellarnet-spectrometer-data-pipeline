@@ -1,0 +1,96 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/uni-stuttgart-ipv/ipv-solar-park-stellarnet-spectrometer-data-pipeline/spectrometer.schema.json",
+    "title": "Spectrometer configuration list",
+    "description": "List of spectrometer configurations",
+    "type": "array",
+    "items": {
+        "$ref": "#/$defs/spectrometerConfiguration"
+    },
+    "minItems": 1,
+    "maxItems": 8,
+    "$defs": {
+        "spectrometerConfiguration": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "not used, for convenience"
+                },
+                "id": {
+                    "type": "string",
+                    "description": "spectrometer id used when storing data"
+                },
+                "channel": {
+                    "type": "integer",
+                    "description": "channel the spectrometer isplugged in on"
+                },
+                "pixels": {
+                    "type": "integer",
+                    "description": "number of pixels"
+                },
+                "calibration_coefficients": {
+                    "type": "object",
+                    "properties": {
+                        "c1": {
+                            "type": "number"
+                        },
+                        "c2": {
+                            "type": "number"
+                        },
+                        "c3": {
+                            "type": "number"
+                        },
+                        "c4": {
+                            "type": "number",
+                            "default": 0
+                        }
+                    },
+                    "description": "calbibration coefficients found on the bottom of the spectrometer",
+                    "additionalProperties": false,
+                    "required": [
+                        "c1",
+                        "c2",
+                        "c3"
+                    ]
+                },
+                "dark_spectra_path": {
+                    "type": "string",
+                    "description": "path to a dark spectra of the spectrometer"
+                },
+                "intensity_count_threshold": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "minimum number of total counts to consider the spectra valid"
+                },
+                "spectra_frequecy_sec": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "how often to take a spectra in seconds"
+                },
+                "max_time_between_spectra_sec": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "maximum time between valid spectra being stored in seconds"
+                },
+                "spectra_difference_threshold": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "minimum relative change in spectra to consider two spectra different"
+                }
+            },
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "channel",
+                "number_of_pixels",
+                "calibration_coefficients",
+                "intensity_count_threshold",
+                "spectra_frequecy_sec",
+                "max_time_between_spectra_sec",
+                "difference_threshold"
+            ]
+        }
+    }
+}

@@ -1,0 +1,34 @@
+[
+    {
+        "name": "spec-1",
+        "id": "s1",
+        "channel": 1,
+        "number_of_pixels": 2048,
+        "calibration_coefficients": {
+            "c1": 1,
+            "c2": 2,
+            "c3": 3
+        },
+        "dark_spectra_path": "tests/data/s1.dark.SSM",
+        "intensity_counts_threshold": 100,
+        "spectra_frequency_sec": 10,
+        "max_time_between_spectra_sec": 60,
+        "spectra_difference_threshold": 0.10
+    },
+    {
+        "name": "spec-2",
+        "id": "s2",
+        "channel": 2,
+        "number_of_pixels": 512,
+        "calibration_coefficients": {
+            "c1": 2,
+            "c2": 4,
+            "c3": 8
+        },
+        "dark_spectra_path": "tests/data/s2.dark.SSM",
+        "intensity_counts_threshold": 200,
+        "spectra_frequency_sec": 20,
+        "max_time_between_spectra_sec": 200,
+        "spectra_difference_threshold": 0.2
+    }
+]

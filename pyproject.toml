@@ -10,9 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
 keywords = []
-authors = [
-  { name = "Brian Carlsen", email = "carlsen.bri@gmail.com" },
-]
+authors = [{ name = "Brian Carlsen", email = "carlsen.bri@gmail.com" }]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
@@ -38,15 +36,13 @@ Issues = "https://github.com/uni-stuttgart-ipv/ipv-solar-park-stellarnet-spectro
 Source = "https://github.com/uni-stuttgart-ipv/ipv-solar-park-stellarnet-spectrometer-data-pipeline"
 
 [project.scripts]
-ipv_solar_park_stellarnet_spectrometer_data_pipeline = "ipv-solar-park-stellarnet-spectrometer-data-pipeline.__main__:main"
+ipv_solar_park_stellarnet_spectrometer_data_pipeline = "ipv_solar_park_stellarnet_spectrometer_data_pipeline.__main__:main"
 
 [tool.hatch.version]
 path = "src/ipv_solar_park_stellarnet_spectrometer_data_pipeline/__about__.py"
 
 [tool.hatch.envs.types]
-extra-dependencies = [
-  "mypy>=1.0.0",
-]
+extra-dependencies = ["mypy>=1.0.0"]
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/ipv_solar_park_stellarnet_spectrometer_data_pipeline tests}"
 
@@ -54,17 +50,17 @@ check = "mypy --install-types --non-interactive {args:src/ipv_solar_park_stellar
 source_pkgs = ["ipv_solar_park_stellarnet_spectrometer_data_pipeline", "tests"]
 branch = true
 parallel = true
-omit = [
-  "src/ipv_solar_park_stellarnet_spectrometer_data_pipeline/__about__.py",
-]
+omit = ["src/ipv_solar_park_stellarnet_spectrometer_data_pipeline/__about__.py"]
 
 [tool.coverage.paths]
-ipv_solar_park_stellarnet_spectrometer_data_pipeline = ["src/ipv_solar_park_stellarnet_spectrometer_data_pipeline", "*/ipv-solar-park-stellarnet-spectrometer-data-pipeline/src/ipv_solar_park_stellarnet_spectrometer_data_pipeline"]
-tests = ["tests", "*/ipv-solar-park-stellarnet-spectrometer-data-pipeline/tests"]
+ipv_solar_park_stellarnet_spectrometer_data_pipeline = [
+  "src/ipv_solar_park_stellarnet_spectrometer_data_pipeline",
+  "*/ipv-solar-park-stellarnet-spectrometer-data-pipeline/src/ipv_solar_park_stellarnet_spectrometer_data_pipeline",
+]
+tests = [
+  "tests",
+  "*/ipv-solar-park-stellarnet-spectrometer-data-pipeline/tests",
+]
 
 [tool.coverage.report]
-exclude_lines = [
-  "no cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
-]
+exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
